@@ -108,8 +108,9 @@ export function HouseCanvas(props: Props) {
       return
     }
     if (ghost?.ok) {
+      const { ok: _ok, ...placement } = ghost
       if (carrying.kind === 'new-room') {
-        props.onPlaceRoom({ ...ghost })
+        props.onPlaceRoom(placement)
       } else {
         props.onMoveRoom(carrying.room.id, ghost.grid_x, ghost.grid_y)
       }

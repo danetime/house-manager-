@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useHousehold } from '../context/HouseholdContext'
+import { errorMessage } from '../lib/errors'
 
 /** First sign-in: create a household or accept a pending invite. */
 export function OnboardingPage() {
@@ -16,7 +17,7 @@ export function OnboardingPage() {
     try {
       await fn()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(errorMessage(err))
     } finally {
       setBusy(false)
     }

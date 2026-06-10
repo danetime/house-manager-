@@ -8,6 +8,7 @@ import { ROOM_TYPES, roomDisplayName, roomTypeDef, MAX_DRIVEWAYS } from '../lib/
 import { entriesForRoom, itemDisplayName } from '../lib/catalogue'
 import type { Item, Room } from '../lib/types'
 import type { Placement } from '../lib/house'
+import { errorMessage } from '../lib/errors'
 
 export function HousePage() {
   const hh = useHousehold()
@@ -38,7 +39,7 @@ export function HousePage() {
 
   const act = (fn: () => Promise<void>) => {
     setError(null)
-    fn().catch((err) => setError(err instanceof Error ? err.message : 'Something went wrong'))
+    fn().catch((err) => setError(errorMessage(err)))
   }
 
   const unassigned = hh.items.filter((i) => i.room_id === null)
@@ -223,7 +224,7 @@ function RoomEditDialog({ room, onClose }: { room: Room; onClose: () => void }) 
       await hh.removeRoom(room.id)
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not remove room')
+      setError(errorMessage(err, 'Could not remove room'))
     }
   }
 

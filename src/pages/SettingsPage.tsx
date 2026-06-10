@@ -4,6 +4,7 @@ import { useHousehold } from '../context/HouseholdContext'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { formatDate } from '../lib/format'
 import type { Invite } from '../lib/types'
+import { errorMessage } from '../lib/errors'
 
 export function SettingsPage() {
   const { user } = useAuth()
@@ -26,7 +27,7 @@ export function SettingsPage() {
       )
       setEmail('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create invite')
+      setError(errorMessage(err, 'Could not create invite'))
     }
   }
 

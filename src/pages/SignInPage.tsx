@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
+import { errorMessage } from '../lib/errors'
 
 type Mode = 'signin' | 'signup' | 'reset'
 
@@ -41,7 +42,7 @@ export function SignInPage() {
         setMessage('Password reset email sent — check your inbox.')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(errorMessage(err))
     } finally {
       setBusy(false)
     }

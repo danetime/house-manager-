@@ -3,6 +3,7 @@ import { supabase, ATTACHMENTS_BUCKET } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import type { Attachment } from '../lib/types'
 import { ACCEPT_ATTR, prepareUpload } from '../lib/images'
+import { errorMessage } from '../lib/errors'
 import { ConfirmDialog } from './ConfirmDialog'
 
 interface Props {
@@ -69,7 +70,7 @@ export function Attachments({ itemId, householdId }: Props) {
       }
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed')
+      setError(errorMessage(err, 'Upload failed'))
     } finally {
       setBusy(false)
       e.target.value = ''
