@@ -1,0 +1,122 @@
+@import 'tailwindcss';
+@import '@fontsource/press-start-2p';
+
+@theme {
+  --color-cream: #f6edd9;
+  --color-parchment: #efe2c8;
+  --color-terracotta: #c4564a;
+  --color-terracotta-dark: #9e4036;
+  --color-soil: #6b4a32;
+  --color-soil-dark: #574033;
+  --color-moss: #6e9e5b;
+  --color-moss-dark: #557a46;
+  --color-sky: #aedce8;
+  --color-sky-deep: #8ec8da;
+  --color-ink: #3a2e24;
+  --color-amber: #d98e2b;
+  --font-pixel: 'Press Start 2P', monospace;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+.font-pixel {
+  font-family: var(--font-pixel);
+}
+
+.pixelated {
+  image-rendering: pixelated;
+}
+
+/* Chunky retro panel */
+.panel {
+  background: var(--color-parchment);
+  border: 3px solid var(--color-soil);
+  border-radius: 10px;
+  box-shadow: 4px 4px 0 rgba(87, 64, 51, 0.35);
+}
+
+.pixel-btn {
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  padding: 0.6rem 0.9rem;
+  border: 3px solid var(--color-soil);
+  border-radius: 8px;
+  background: var(--color-terracotta);
+  color: #fff7ea;
+  box-shadow: 3px 3px 0 rgba(87, 64, 51, 0.4);
+  cursor: pointer;
+  transition: transform 60ms ease;
+  text-align: center;
+}
+.pixel-btn:hover {
+  filter: brightness(1.05);
+}
+.pixel-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 rgba(87, 64, 51, 0.4);
+}
+.pixel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.pixel-btn.secondary {
+  background: var(--color-parchment);
+  color: var(--color-ink);
+}
+.pixel-btn.green {
+  background: var(--color-moss);
+}
+
+.field {
+  width: 100%;
+  border: 2px solid var(--color-soil);
+  border-radius: 6px;
+  background: #fffaf0;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.9rem;
+}
+.field:focus {
+  outline: 2px solid var(--color-amber);
+}
+
+.field-label {
+  display: block;
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  color: var(--color-soil);
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+}
+
+/* Room glow when it contains a flagged item */
+@keyframes room-glow {
+  0%, 100% { box-shadow: inset 0 0 0 3px rgba(217, 142, 43, 0); }
+  50% { box-shadow: inset 0 0 0 3px rgba(217, 142, 43, 0.55); }
+}
+.room-glow {
+  animation: room-glow 2.4s ease-in-out infinite;
+}
+
+/* Warning badge bounce */
+@keyframes badge-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+.badge-bob {
+  animation: badge-bob 1.2s ease-in-out infinite;
+}
+
+/* Chimney smoke puffs */
+@keyframes smoke-rise {
+  0% { transform: translateY(0) scale(1); opacity: 0.7; }
+  100% { transform: translateY(-26px) scale(1.8); opacity: 0; }
+}
+.smoke-puff {
+  animation: smoke-rise 3s linear infinite;
+}
+.smoke-puff.delay-1 { animation-delay: 1s; }
+.smoke-puff.delay-2 { animation-delay: 2s; }
