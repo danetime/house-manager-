@@ -18,7 +18,7 @@ import type {
   Room,
 } from '../lib/types'
 import { catalogueEntry } from '../lib/catalogue'
-import { nextFreeSlot, type Placement } from '../lib/house'
+import { canResizeRoom, nextFreeSlot, type Placement } from '../lib/house'
 import { deriveReminders, flaggedItemIds, type Reminder } from '../lib/reminders'
 
 interface HouseholdState {
@@ -40,10 +40,11 @@ interface HouseholdState {
   addRoom: (p: Placement) => Promise<void>
   moveRoom: (id: string, gridX: number, gridY: number) => Promise<void>
   renameRoom: (id: string, name: string) => Promise<void>
+  resizeRoom: (id: string, width: number, height: number) => Promise<void>
   removeRoom: (id: string) => Promise<void>
   addItem: (roomId: string | null, typeKey: string) => Promise<Item | null>
   updateItem: (id: string, patch: Partial<Item>) => Promise<void>
-  moveItem: (id: string, roomId: string | null) => Promise<void>
+  moveItem: (id: string, roomId: string | null, slot?: number) => Promise<void>
   deleteItem: (id: string) => Promise<void>
 }
 
@@ -184,6 +185,16 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
     await refresh()
   }
 
+  const resizeRoom = async (id: string, width: number, height: number) => {
+    const room = rooms.find((r) => r.id === id)
+    if (!room) return
+    const check = canResizeRoom(room, width, height, rooms)
+    if (!check.ok) throw new Error(check.reason)
+    const { error } = await supabase.from('rooms').update({ width, height }).eq('id', id)
+    if (error) throw error
+    await refresh()
+  }
+
   /** Items move to the Unassigned holding area — never silently deleted. */
   const removeRoom = async (id: string) => {
     const move = await supabase.from('items').update({ room_id: null }).eq('room_id', id)
@@ -222,11 +233,24 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
     await refresh()
   }
 
-  const moveItem = async (id: string, roomId: string | null) => {
+  const moveItem = async (id: string, roomId: string | null, slot?: number) => {
     const room = rooms.find((r) => r.id === roomId)
-    const taken = items.filter((i) => i.room_id === roomId && i.id !== id).map((i) => i.slot)
-    const slot = room ? nextFreeSlot(room, taken) : 0
-    await updateItem(id, { room_id: roomId, slot })
+    const moving = items.find((i) => i.id === id)
+    const others = items.filter((i) => i.room_id === roomId && i.id !== id)
+    const taken = others.map((i) => i.slot)
+    const target = room ? (slot ?? nextFreeSlot(room, taken)) : 0
+    // dropping onto an occupied slot displaces the occupant, swapping if
+    // the carried item came from the same room
+    const occupant = others.find((i) => i.slot === target)
+    if (occupant && room) {
+      const fallback =
+        moving && moving.room_id === roomId
+          ? moving.slot
+          : nextFreeSlot(room, [...taken, target])
+      const { error } = await supabase.from('items').update({ slot: fallback }).eq('id', occupant.id)
+      if (error) throw error
+    }
+    await updateItem(id, { room_id: roomId, slot: target })
   }
 
   /** Deletes the item, its records (cascade) and its files in storage. */
@@ -264,6 +288,7 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
         addRoom,
         moveRoom,
         renameRoom,
+        resizeRoom,
         removeRoom,
         addItem,
         updateItem,

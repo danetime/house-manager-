@@ -110,11 +110,32 @@ export function roofSegments(rooms: Room[]): Array<{ x: number; topY: number }> 
   return [...tops.entries()].map(([x, topY]) => ({ x, topY })).sort((a, b) => a.x - b.x)
 }
 
-/** Number of item slots a room offers (one per grid cell of width). */
+/** Number of item slots a room offers (two per grid cell of width). */
 export const roomSlotCount = (room: Pick<Room, 'width'>) => room.width * 2
 
+/**
+ * Prefer even slots (cell centres) so items spread out before doubling up
+ * in the half-cell positions between them.
+ */
 export function nextFreeSlot(room: Pick<Room, 'width'>, taken: number[]): number {
   const cap = roomSlotCount(room)
-  for (let s = 0; s < cap; s++) if (!taken.includes(s)) return s
+  const order: number[] = []
+  for (let s = 0; s < cap; s += 2) order.push(s)
+  for (let s = 1; s < cap; s += 2) order.push(s)
+  for (const s of order) if (!taken.includes(s)) return s
   return taken.length % cap
+}
+
+/** Resizing keeps the room anchored at its bottom-left corner. */
+export function canResizeRoom(
+  room: Room,
+  width: number,
+  height: number,
+  rooms: Room[],
+): PlacementCheck {
+  return canPlaceRoom(
+    { type: room.type, grid_x: room.grid_x, grid_y: room.grid_y, width, height },
+    rooms,
+    room.id,
+  )
 }

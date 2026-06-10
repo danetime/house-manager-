@@ -7,7 +7,7 @@ import { PixelSprite } from '../components/PixelSprite'
 import { ROOM_TYPES, roomDisplayName, roomTypeDef, MAX_DRIVEWAYS } from '../lib/roomTypes'
 import { entriesForRoom, itemDisplayName } from '../lib/catalogue'
 import type { Item, Room } from '../lib/types'
-import type { Placement } from '../lib/house'
+import { canResizeRoom, GRID_COLS, GRID_ROWS, type Placement } from '../lib/house'
 import { errorMessage } from '../lib/errors'
 
 export function HousePage() {
@@ -131,9 +131,9 @@ export function HousePage() {
             setCarrying(null)
             act(() => hh.moveRoom(id, x, y))
           }}
-          onDropItem={(itemId, roomId) => {
+          onDropItem={(itemId, roomId, slot) => {
             setCarrying(null)
-            act(() => hh.moveItem(itemId, roomId))
+            act(() => hh.moveItem(itemId, roomId, slot))
           }}
           onItemClick={(item) => setOpenItem(item)}
           onRoomEdit={(room) => setEditingRoom(room)}
@@ -214,9 +214,29 @@ export function HousePage() {
 function RoomEditDialog({ room, onClose }: { room: Room; onClose: () => void }) {
   const hh = useHousehold()
   const [name, setName] = useState(room.custom_name ?? '')
+  const [width, setWidth] = useState(room.width)
+  const [height, setHeight] = useState(room.height)
   const [confirmRemove, setConfirmRemove] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const contents = hh.items.filter((i) => i.room_id === room.id)
+
+  const sizeCheck =
+    width === room.width && height === room.height
+      ? { ok: true as const }
+      : canResizeRoom(room, width, height, hh.rooms)
+
+  const save = async () => {
+    setError(null)
+    try {
+      if (width !== room.width || height !== room.height) {
+        await hh.resizeRoom(room.id, width, height)
+      }
+      await hh.renameRoom(room.id, name)
+      onClose()
+    } catch (err) {
+      setError(errorMessage(err, 'Could not save room'))
+    }
+  }
 
   const remove = async () => {
     setConfirmRemove(false)
@@ -227,6 +247,34 @@ function RoomEditDialog({ room, onClose }: { room: Room; onClose: () => void }) 
       setError(errorMessage(err, 'Could not remove room'))
     }
   }
+
+  const stepper = (
+    label: string,
+    value: number,
+    setValue: (n: number) => void,
+    max: number,
+  ) => (
+    <div>
+      <span className="field-label">{label}</span>
+      <div className="flex items-center gap-2">
+        <button
+          className="pixel-btn secondary"
+          disabled={value <= 1}
+          onClick={() => setValue(value - 1)}
+        >
+          −
+        </button>
+        <span className="w-8 text-center font-medium">{value}</span>
+        <button
+          className="pixel-btn secondary"
+          disabled={value >= max}
+          onClick={() => setValue(value + 1)}
+        >
+          +
+        </button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -240,6 +288,13 @@ function RoomEditDialog({ room, onClose }: { room: Room; onClose: () => void }) 
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
+        <div className="mb-3 flex gap-6">
+          {stepper('Width', width, setWidth, GRID_COLS)}
+          {stepper('Height (floors)', height, setHeight, GRID_ROWS)}
+        </div>
+        {!sizeCheck.ok && (
+          <p className="mb-3 text-sm text-terracotta">{sizeCheck.reason}</p>
+        )}
         {error && <p className="mb-3 text-sm text-terracotta">{error}</p>}
         <div className="flex justify-between gap-2">
           <button className="pixel-btn" onClick={() => setConfirmRemove(true)}>
@@ -251,9 +306,8 @@ function RoomEditDialog({ room, onClose }: { room: Room; onClose: () => void }) 
             </button>
             <button
               className="pixel-btn green"
-              onClick={() => {
-                void hh.renameRoom(room.id, name).then(onClose)
-              }}
+              disabled={!sizeCheck.ok}
+              onClick={() => void save()}
             >
               Save
             </button>

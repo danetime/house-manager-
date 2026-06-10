@@ -29,7 +29,7 @@ interface Props {
   selectedItemId: string | null
   onPlaceRoom: (p: Placement) => void
   onMoveRoom: (id: string, x: number, y: number) => void
-  onDropItem: (itemId: string, roomId: string) => void
+  onDropItem: (itemId: string, roomId: string, slot: number) => void
   onItemClick: (item: Item) => void
   onRoomEdit: (room: Room) => void
   onRoomAddItem: (room: Room) => void
@@ -44,12 +44,24 @@ const ROOF_H = 80
 const GROUND_H = 36
 
 /** Wall-mounted items render near the ceiling instead of on the floor. */
-const WALL_MOUNTED = new Set(['smoke_alarm', 'extractor_fan', 'boiler', 'shower'])
+const WALL_MOUNTED = new Set(['smoke_alarm', 'extractor_fan', 'boiler'])
 const WIDE_SPRITES = new Set(['car', 'sofa', 'bed', 'bath'])
+
+const spriteSize = (type: string) =>
+  WALL_MOUNTED.has(type) ? 24 : WIDE_SPRITES.has(type) ? 34 : 38
 
 export function HouseCanvas(props: Props) {
   const { mode, rooms, items, flaggedItems, carrying } = props
-  const [hoverCell, setHoverCell] = useState<{ x: number; y: number } | null>(null)
+  /** mouse position in canvas px, or null when outside */
+  const [hoverPt, setHoverPt] = useState<{ px: number; py: number } | null>(null)
+
+  const hoverCell = useMemo(() => {
+    if (!hoverPt) return null
+    const x = Math.floor(hoverPt.px / CELL_W)
+    const y = Math.floor((GRID_H - (hoverPt.py - ROOF_H)) / CELL_H)
+    if (x < 0 || x >= GRID_COLS || y < 0 || y >= GRID_ROWS) return null
+    return { x, y }
+  }, [hoverPt])
 
   const roomRect = (r: Pick<Room, 'grid_x' | 'grid_y' | 'width' | 'height'>) => ({
     left: r.grid_x * CELL_W,
@@ -91,20 +103,26 @@ export function HouseCanvas(props: Props) {
     )
   }, [hoverCell, rooms])
 
+  /** Exact slot under the cursor while carrying an item over a room. */
+  const hoverSlot = useMemo(() => {
+    if (carrying?.kind !== 'move-item' || !hoverRoom || !hoverPt) return null
+    const rect = roomRect(hoverRoom)
+    const slots = roomSlotCount(hoverRoom)
+    const slotW = rect.width / slots
+    const slot = Math.floor((hoverPt.px - rect.left) / slotW)
+    return Math.min(Math.max(slot, 0), slots - 1)
+  }, [carrying, hoverRoom, hoverPt])
+
   const onMouseMove = (e: MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
-    const px = e.clientX - rect.left
-    const py = e.clientY - rect.top - ROOF_H
-    const x = Math.floor(px / CELL_W)
-    const y = Math.floor((GRID_H - py) / CELL_H)
-    if (x < 0 || x >= GRID_COLS || y < 0 || y >= GRID_ROWS) setHoverCell(null)
-    else setHoverCell({ x, y })
+    setHoverPt({ px: e.clientX - rect.left, py: e.clientY - rect.top })
   }
 
   const onCanvasClick = () => {
     if (!carrying) return
     if (carrying.kind === 'move-item') {
-      if (hoverRoom) props.onDropItem(carrying.item.id, hoverRoom.id)
+      if (hoverRoom && hoverSlot !== null)
+        props.onDropItem(carrying.item.id, hoverRoom.id, hoverSlot)
       return
     }
     if (ghost?.ok) {
@@ -134,7 +152,7 @@ export function HouseCanvas(props: Props) {
         cursor: carrying ? 'copy' : 'default',
       }}
       onMouseMove={onMouseMove}
-      onMouseLeave={() => setHoverCell(null)}
+      onMouseLeave={() => setHoverPt(null)}
       onClick={onCanvasClick}
       onContextMenu={(e) => {
         if (carrying) {
@@ -261,9 +279,26 @@ export function HouseCanvas(props: Props) {
               </div>
             )}
 
-            {/* drop highlight when carrying an item */}
+            {/* drop target: dashed outline + ghost sprite at the exact slot */}
             {carrying?.kind === 'move-item' && hoverRoom?.id === room.id && (
-              <div className="absolute inset-0 z-10 border-4 border-dashed border-amber bg-amber/20" />
+              <>
+                <div className="pointer-events-none absolute inset-0 z-10 border-2 border-dashed border-amber" />
+                {hoverSlot !== null && (
+                  <div
+                    className="pointer-events-none absolute z-10 opacity-60"
+                    style={{
+                      left: (hoverSlot + 0.5) * (rect.width / roomSlotCount(room)),
+                      transform: 'translateX(-50%)',
+                      ...(WALL_MOUNTED.has(carrying.item.type) ? { top: 6 } : { bottom: 10 }),
+                    }}
+                  >
+                    <PixelSprite
+                      type={carrying.item.type}
+                      size={spriteSize(carrying.item.type)}
+                    />
+                  </div>
+                )}
+              </>
             )}
 
             {/* items */}
@@ -271,7 +306,7 @@ export function HouseCanvas(props: Props) {
               const slots = roomSlotCount(room)
               const slotW = rect.width / slots
               const wallMounted = WALL_MOUNTED.has(item.type)
-              const size = WIDE_SPRITES.has(item.type) ? 34 : wallMounted ? 24 : 38
+              const size = spriteSize(item.type)
               const flagged = flaggedItems.has(item.id)
               const beingCarried =
                 carrying?.kind === 'move-item' && carrying.item.id === item.id
